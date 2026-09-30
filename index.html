@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juego de Vocales</title>
+
+<!-- Enlace al Manifest para PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4F46E5">
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial,sans-serif;
+    background:url('Unir02.jpg') center center/cover no-repeat #2c3e50;
+    height:100vh;
+    overflow:hidden;
+}
+
+h1{
+    color:white;
+    text-align:center;
+    margin:10px;
+    text-shadow:2px 2px 5px black;
+}
+
+.panel{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:30px;
+    color:white;
+    font-size:22px;
+    font-weight:bold;
+}
+
+#gameArea{
+    position:relative;
+    width:100%;
+    height:78vh;
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
+    touch-action:none;
+}
+
+.tree{
+    width:180px;
+    height:90%;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-evenly;
+    align-items:center;
+}
+
+.letra{
+    font-size:60px;
+    font-weight:bold;
+    color:yellow;
+    text-shadow:2px 2px 4px black;
+    user-select:none;
+    cursor:pointer;
+}
+
+.manuscrita{
+    font-family:cursive;
+    font-size:70px;
+}
+
+.objetivo{
+    color:#ff4444;
+    transform:scale(1.2);
+}
+
+#lineas{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+}
+
+.error{
+    animation:sacudir .4s;
+    color:red;
+}
+
+@keyframes sacudir{
+    0%{transform:translateX(0);}
+    25%{transform:translateX(-8px);}
+    50%{transform:translateX(8px);}
+    75%{transform:translateX(-8px);}
+    100%{transform:translateX(0);}
+}
+
+button{
+    display:block;
+    margin:10px auto;
+    padding:12px 30px;
+    font-size:20px;
+    cursor:pointer;
+    border-radius:8px;
+    border:none;
+    background-color:#4CAF50;
+    color:white;
+    font-weight:bold;
+    box-shadow:0 4px 6px rgba(0,0,0,0.3);
+    transition:background-color 0.2s, transform 0.1s;
+}
+
+button:active{
+    transform:scale(0.98);
+}
+
+.btn-repetir{
+    background-color:#2196F3;
+    padding:8px 16px;
+    font-size:18px;
+    margin:0;
+}
+
+#resultado{
+    display:none;
+    width:350px;
+    margin:auto;
+    margin-top:20px;
+    background:white;
+    padding:20px;
+    border-radius:15px;
+    text-align:center;
+}
+
+</style>
+</head>
+<body>
+
+<h1>UNIR VOCALES</h1>
+
+<div class="panel">
+<div>Ejercicio: <span id="ejercicio">1</span>/5</div>
+<div>Aciertos: <span id="aciertos">0</span></div>
+<div>Errores: <span id="errores">0</span></div>
+<button class="btn-repetir" onclick="pronunciarVocalObjetivo()">🔊 Repetir vocal</button>
+</div>
+
+<div id="gameArea">
+
+    <svg id="lineas"></svg>
+
+    <div id="tronco1" class="tree"></div>
+    <div id="tronco2" class="tree"></div>
+    <div id="tronco3" class="tree"></div>
+
+</div>
+
+<div id="resultado"></div>
+
+<button onclick="reiniciarJuego()">
+REINICIAR JUEGO
+</button>
+
+<script>
+
+const vocales=["a","e","i","o","u"];
+
+const positivos=[
+"Sí",
+"Correcto",
+"Acertaste"
+];
+
+let ejercicio=1;
+let aciertos=0;
+let errores=0;
+
+let vocalObjetivo="";
+let paso=1;
+
+let origen=null;
+let lineaTemporal=null;
+
+const svg=document.getElementById("lineas");
+
+function hablar(texto){
+
+    speechSynthesis.cancel();
+
+    const voz=
+    new SpeechSynthesisUtterance(texto);
+
+    voz.lang="es-MX";
+    voz.rate=0.9;
+
+    speechSynthesis.speak(voz);
+}
+
+function pronunciarVocalObjetivo(){
+    if(vocalObjetivo){
+        hablar("Busca la letra " + vocalObjetivo.toUpperCase());
+    }
+}
+
+function mezclar(arr){
+    return [...arr].sort(()=>Math.random()-0.5);
+}
+
+function crearColumna(id,datos,manuscrita){
+
+    const cont=document.getElementById(id);
+
+    cont.innerHTML="";
+
+    datos.forEach(letra=>{
+
+        const div=document.createElement("div");
+
+        div.className="letra";
+
+        if(manuscrita){
+            div.classList.add("manuscrita");
+        }
+
+        div.textContent=letra;
+        div.dataset.valor=letra.toLowerCase();
+
+        cont.appendChild(div);
+
+    });
+
+}
+
+function nuevoEjercicio(){
+
+    svg.innerHTML="";
+
+    paso=1;
+
+    vocalObjetivo=
+    vocales[Math.floor(Math.random()*5)];
+
+    crearColumna(
+        "tronco1",
+        mezclar(vocales),
+        true
+    );
+
+    crearColumna(
+        "tronco2",
+        mezclar(vocales),
+        false
+    );
+
+    crearColumna(
+        "tronco3",
+        mezclar(
+            vocales.map(v=>v.toUpperCase())
+        ),
+        false
+    );
+
+    resaltarPrimera();
+    pronunciarVocalObjetivo();
+}
+
+function resaltarPrimera(){
+
+    document
+    .querySelectorAll("#tronco1 .letra")
+    .forEach(el=>{
+
+        if(el.dataset.valor===vocalObjetivo){
+
+            el.classList.add("objetivo");
+
+            el.addEventListener(
+                "pointerdown",
+                iniciarArrastre
+            );
+
+        }
+
+    });
+
+}
+
+function iniciarArrastre(e){
+
+    origen=e.currentTarget;
+
+    const area=
+    document.getElementById("gameArea")
+    .getBoundingClientRect();
+
+    const rect=
+    origen.getBoundingClientRect();
+
+    const x=
+    rect.left+rect.width/2-area.left;
+
+    const y=
+    rect.top+rect.height/2-area.top;
+
+    lineaTemporal=
+    document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line"
+    );
+
+    lineaTemporal.setAttribute("x1",x);
+    lineaTemporal.setAttribute("y1",y);
+    lineaTemporal.setAttribute("x2",x);
+    lineaTemporal.setAttribute("y2",y);
+
+    lineaTemporal.setAttribute(
+        "stroke",
+        "red"
+    );
+
+    lineaTemporal.setAttribute(
+        "stroke-width",
+        "6"
+    );
+
+    svg.appendChild(lineaTemporal);
+
+    window.addEventListener(
+        "pointermove",
+        mover
+    );
+
+    window.addEventListener(
+        "pointerup",
+        finalizar
+    );
+}
+
+function mover(e){
+
+    if(!lineaTemporal) return;
+
+    const area=
+    document.getElementById("gameArea")
+    .getBoundingClientRect();
+
+    lineaTemporal.setAttribute(
+        "x2",
+        e.clientX-area.left
+    );
+
+    lineaTemporal.setAttribute(
+        "y2",
+        e.clientY-area.top
+    );
+}
+
+function finalizar(e){
+
+    window.removeEventListener(
+        "pointermove",
+        mover
+    );
+
+    window.removeEventListener(
+        "pointerup",
+        finalizar
+    );
+
+    const destino=
+    document.elementFromPoint(
+        e.clientX,
+        e.clientY
+    );
+
+    validar(destino);
+}
+
+function eliminarLinea(){
+
+    if(lineaTemporal){
+
+        lineaTemporal.remove();
+        lineaTemporal=null;
+
+    }
+}
+
+function fijarLinea(destino){
+
+    const area=
+    document.getElementById("gameArea")
+    .getBoundingClientRect();
+
+    const rect=
+    destino.getBoundingClientRect();
+
+    lineaTemporal.setAttribute(
+        "x2",
+        rect.left+rect.width/2-area.left
+    );
+
+    lineaTemporal.setAttribute(
+        "y2",
+        rect.top+rect.height/2-area.top
+    );
+
+    lineaTemporal=null;
+}
+
+function mensajeCorrecto(){
+
+    const texto=
+    positivos[
+        Math.floor(
+            Math.random()*positivos.length
+        )
+    ];
+
+    hablar(texto);
+}
+
+function validar(destino){
+
+    if(
+        !destino ||
+        !destino.dataset ||
+        !destino.dataset.valor
+    ){
+        eliminarLinea();
+        return;
+    }
+
+    if(
+        destino.dataset.valor
+        !== vocalObjetivo
+    ){
+
+        errores++;
+
+        document
+        .getElementById("errores")
+        .textContent=errores;
+
+        hablar("No");
+
+        destino.classList.add("error");
+
+        setTimeout(()=>{
+            destino.classList.remove("error");
+        },400);
+
+        eliminarLinea();
+
+        return;
+    }
+
+    if(
+       paso===1 &&
+       destino.parentElement.id==="tronco2"
+    ){
+
+        mensajeCorrecto();
+
+        fijarLinea(destino);
+
+        origen=destino;
+        paso=2;
+
+        destino.classList.add("objetivo");
+
+        destino.addEventListener(
+            "pointerdown",
+            iniciarArrastre
+        );
+
+        return;
+    }
+
+    if(
+       paso===2 &&
+       destino.parentElement.id==="tronco3"
+    ){
+
+        mensajeCorrecto();
+
+        fijarLinea(destino);
+
+        aciertos++;
+
+        document
+        .getElementById("aciertos")
+        .textContent=aciertos;
+
+        setTimeout(()=>{
+
+            hablar(
+                vocalObjetivo.toUpperCase()
+            );
+
+        },400);
+
+        setTimeout(siguiente,1200);
+
+        return;
+    }
+
+    eliminarLinea();
+}
+
+function siguiente(){
+
+    ejercicio++;
+
+    if(ejercicio>5){
+
+        terminarJuego();
+        return;
+    }
+
+    document
+    .getElementById("ejercicio")
+    .textContent=ejercicio;
+
+    nuevoEjercicio();
+}
+
+function terminarJuego(){
+
+    document
+    .getElementById("gameArea")
+    .style.display="none";
+
+    const total=
+    aciertos+errores;
+
+    const r=
+    document.getElementById(
+        "resultado"
+    );
+
+    r.style.display="block";
+
+    r.innerHTML=`
+    <h2>🏆 REPORTE FINAL</h2>
+    <br>
+    <p>Aciertos: ${aciertos}</p>
+    <p>Errores: ${errores}</p>
+    <p>Intentos: ${total}</p>
+    <br>
+    <h3>⭐⭐⭐⭐⭐</h3>
+    `;
+}
+
+function reiniciarJuego(){
+
+    ejercicio=1;
+    aciertos=0;
+    errores=0;
+
+    document.getElementById("ejercicio").textContent=1;
+    document.getElementById("aciertos").textContent=0;
+    document.getElementById("errores").textContent=0;
+
+    document.getElementById("resultado").style.display="none";
+    document.getElementById("gameArea").style.display="flex";
+
+    nuevoEjercicio();
+}
+
+nuevoEjercicio();
+
+// Registro del Service Worker para soporte offline PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.log('Error al registrar SW:', err);
+    });
+  });
+}
+
+</script>
+
+</body>
+</html>
